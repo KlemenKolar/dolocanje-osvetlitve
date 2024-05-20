@@ -1,0 +1,11 @@
+light_estimation/estimation/dataset
+light_estimation/estimation/models
+light_estimation/estimation/models_old
+light_estimation/estimation/real_images
+light_estimation/estimation/__pycache__
+light_estimation/estimation/venv
+light_estimation/venv
+light_estimation/evaluation/__pycache__
+light_estimation/evaluation/img
+light_estimation/evaluation/labels
+.idea

@@ -1,0 +1,3 @@
+MAE azimuth: 15.44, MAE elevation: 1.41 on real images dataset with model f36a6f67-4402-4081-9eeb-6480ccf24a43
+----------------------
+MAE azimuth: 1.5672043010752688, MAE elevation: 3.252688172043011 - with model: f36a6f67-4402-4081-9eeb-6480ccf24a43 on dataset: LED128x128_test_1.hdf5

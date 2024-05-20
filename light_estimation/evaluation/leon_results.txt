@@ -1,0 +1,11 @@
+1.
+testna množica: Only_Material_Dataset_Shorter.hdf5
+results: MAE azimuth: 0.2357161562112445, MAE elevation: 0.43933216273355574
+
+2.
+testna množica: LED128x128_test_1.hdf5
+results: MAE azimuth: 0.4760702409797785, MAE elevation: 0.42644509072453557
+
+3.
+testna množica: realne slike od leona
+results: MAE azimuth: 2.427590060636515, MAE elevation: 0.5668717414963274

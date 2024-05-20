@@ -1,0 +1,3 @@
+MAE azimuth: 0.21
+MAE elevation: 0.112
+na realnem datasetu

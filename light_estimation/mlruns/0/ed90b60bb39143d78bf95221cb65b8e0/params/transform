@@ -1,0 +1,15 @@
+Compose(
+    RandomApply(
+    p=0.1
+    ColorJitter(brightness=(0.8, 1.2), contrast=None, saturation=None, hue=None)
+)
+    RandomApply(
+    p=0.1
+    ColorJitter(brightness=None, contrast=(0.8, 1.2), saturation=None, hue=None)
+)
+    ToTensor()
+    RandomApply(
+    p=0.15
+    GaussianBlur(kernel_size=(3, 3), sigma=(0.1, 2.0))
+)
+)

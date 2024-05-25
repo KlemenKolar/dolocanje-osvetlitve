@@ -18,7 +18,7 @@ def compare_discrete(preds, truth):
         dict32 = {((i + 1) / 32) * 2 * np.pi: i for i in np.arange(32)}
         dict16 = {((i + 1) / 16) * np.pi / 2: i for i in np.arange(16)}
         for true in truth:
-            truth_bin.append([dict32[min(dict32, key=lambda x:abs(x-(true[0])))], dict16[min(dict16, key=lambda x:abs(x-(true[1])))]])
+            truth_bin.append([dict32[min(dict32, key=lambda x:abs(x-(true[0]*2*np.pi)))], dict16[min(dict16, key=lambda x:abs(x-(true[1]*np.pi/2)))]])
 
     return preds_bin, truth_bin
 

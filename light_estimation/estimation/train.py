@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader, Dataset
 from datetime import datetime
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import KBinsDiscretizer
-from matplotlib import pyplot as plt
+# from matplotlib import pyplot as plt
 
 from estimation.config import (checkpoints_dir_path, dataset_dir_path,
                     dataset_size_stamp, default_dataset,
@@ -23,6 +23,7 @@ from estimation.config import (checkpoints_dir_path, dataset_dir_path,
 from estimation.enums import DataMode
 from estimation.model import create_model
 from estimation.utils import check_create_dir
+import mlflow
 from loss import *
 
 
@@ -106,6 +107,25 @@ def load_data_npy(
     )
 
 
+def log_training_parameters(run_id, model_architecture, dataset_path, model_path, weights, data_mode, learning_rate, batch_size, epochs, a_bins, b_bins, load_model, transform, epoch_reached, model):
+    mlflow.start_run(run_id=f'{model_architecture}-{run_id}')
+    mlflow.log_param("model_architecture", model_architecture)
+    mlflow.log_param("dataset_path", dataset_path)
+    mlflow.log_param("model_path", model_path)
+    mlflow.log_param("weights", weights)
+    mlflow.log_param("data_mode", data_mode)
+    mlflow.log_param("learning_rate", learning_rate)
+    mlflow.log_param("batch_size", batch_size)
+    mlflow.log_param("epochs", epochs)
+    mlflow.log_param("a_bins", a_bins)
+    mlflow.log_param("b_bins", b_bins)
+    mlflow.log_param("load_model", load_model)
+    mlflow.log_param("transform", transform)
+    mlflow.log_param("erpoch_reached", epoch_reached)
+    mlflow.pytorch.log_model(model, f'model_{epoch_reached}id{run_id}')
+    mlflow.end_run()
+
+
 def load_data(
         dataset_path: str,
         data_mode: DataMode,
@@ -171,7 +191,7 @@ def train(
         model_path: str = None,
         weights: str = None,
         data_mode: DataMode = DataMode.RADIANS,
-        learning_rate: float = 0.00001,
+        learning_rate: float = 0.0002,
         batch_size: int = 32,
         epochs: int = 200,
         a_bins: int = 32,
@@ -238,15 +258,15 @@ def train(
             # Randomly apply grayscale conversion
             #transforms.RandomApply([transforms.Grayscale(num_output_channels=3)], p=1),
             # Randomly apply brightness adjustment
-            transforms.RandomApply([transforms.ColorJitter(brightness=0.2)], p=0.2),
+            transforms.RandomApply([transforms.ColorJitter(brightness=0.2)], p=0.1),
             # Randomly apply contrast adjustment
-            transforms.RandomApply([transforms.ColorJitter(contrast=0.2)], p=0.2),
+            transforms.RandomApply([transforms.ColorJitter(contrast=0.2)], p=0.1),
             # Convert to tensor
             transforms.ToTensor(),
             # Randomly apply noise
             # transforms.RandomApply([transforms.Lambda(lambda x: x + torch.randn_like(x) * 0.04)], p=0.2),
             # Randomly apply Gaussian blur
-            transforms.RandomApply([transforms.GaussianBlur(kernel_size=3)], p=0.2)
+            transforms.RandomApply([transforms.GaussianBlur(kernel_size=3)], p=0.15)
         ])
 
         patience = 10
@@ -328,10 +348,10 @@ def train(
 
             if avg_vloss < best_vloss:
                 best_vloss = avg_vloss
-                model_dir = f'models/{model_architecture}-{timestamp}'
+                model_dir = os.path.join(model_dir_path, f'{model_architecture}-{run_id}')
                 if not os.path.exists(model_dir):
                     os.mkdir(model_dir)
-                model_path = f'{model_dir}/model_{epoch_number}'
+                model_path = f'{model_dir}/model_{epoch_number}id{run_id}'
                 torch.save(model.state_dict(), model_path)
                 patience = 10
             else:
@@ -409,10 +429,10 @@ def train(
 
             if avg_vloss < best_vloss:
                 best_vloss = avg_vloss
-                model_dir = f'models/{model_architecture}-{timestamp}'
+                model_dir = os.path.join(model_dir_path, f'{model_architecture}-{run_id}')
                 if not os.path.exists(model_dir):
                     os.mkdir(model_dir)
-                model_path = f'{model_dir}/model_{epoch_number}'
+                model_path = f'{model_dir}/model_{epoch_number}id{run_id}'
                 torch.save(model.state_dict(), model_path)
                 patience = 10
             else:
@@ -425,6 +445,24 @@ def train(
 
             end_time = time.time()
             print(f'Epoch {epoch_number} elapsed time: {round((end_time - start_time) / 60, 1)}')
+        
+    log_training_parameters(
+        run_id=run_id,
+        model_architecture=model_architecture,
+        dataset_path=dataset_dir_path,
+        model_path=model_dir_path,
+        weights=weights,
+        data_mode=DataMode(data_mode),
+        learning_rate=args.learning_rate,
+        batch_size=batch_size,
+        epochs=epochs,
+        a_bins=a_bins,
+        b_bins=b_bins,
+        load_model=load_model,
+        transform=transform,
+        epoch_reached=epoch_number,
+        model=model
+    )
 
 
 if __name__ == '__main__':
@@ -452,7 +490,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-w', '--weights',
         help="path for pretrained weights file",
-        default=None
+        default=models.EfficientNet_B3_Weights.DEFAULT # Pretrained weights, you can put None if you don't want this
     )
 
     parser.add_argument(

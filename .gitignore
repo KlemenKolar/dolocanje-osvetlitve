@@ -9,3 +9,6 @@ light_estimation/evaluation/__pycache__
 light_estimation/evaluation/img
 light_estimation/evaluation/labels
 .idea
+light_estimation/build
+light_estimation/dist
+light_estimation/light_estimation.egg-info

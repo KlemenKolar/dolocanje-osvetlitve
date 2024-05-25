@@ -64,7 +64,8 @@ checkpoints_dir_path = f'{root_dir}/checkpoints'
 # dataset_size_stamp - width and height of dataset in string format used for identifying datasets
 dataset_size_stamp = f'{w_dataset}x{h_dataset}'
 # hdf5_dataset_path - path for hdf5 dataset (LightEstimationDataset)
-hdf5_dataset_path = f'{dataset_dir_path}/LED{dataset_size_stamp}.hdf5'
+#hdf5_dataset_path = f'{dataset_dir_path}/LED{dataset_size_stamp}.hdf5'
+hdf5_dataset_path = f'{dataset_dir_path}/Only_Material_Dataset_Shorter.hdf5'
 # images_dataset_path - path for images dataset
 images_dataset_path = f'{dataset_dir_path}/images{dataset_size_stamp}'
 # light_dataset_path - path for light position dataset

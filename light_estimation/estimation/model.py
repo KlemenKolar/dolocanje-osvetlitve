@@ -13,7 +13,7 @@ def efficient_net_b3(
     weights: str = None,
 ) -> nn.Module:
     base_model = models.efficientnet_b3(
-        weights=weights
+        weights=weights,
     )
     light_angles = light_angles_head(base_model)
 
@@ -26,7 +26,7 @@ def efficient_net_b3_discrete(
     b_bins: int = 16
 ) -> nn.Module:
     base_model = models.efficientnet_b3(
-        weights=weights
+        weights=weights,
     )
     light_angles = light_angles_head_discrete(base_model, a_bins, b_bins)
 

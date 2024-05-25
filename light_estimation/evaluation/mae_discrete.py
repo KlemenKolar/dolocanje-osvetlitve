@@ -16,13 +16,13 @@ import json
 
 def synthetic():
     model = efficient_net_b3_discrete()
-    model.load_state_dict(torch.load("../estimation/models/efficient_net_b3_discrete-0152024/model_35", map_location=torch.device("cpu")))
+    model.load_state_dict(torch.load("../estimation/models/efficient_net_b3_discrete-2642024/model_28", map_location=torch.device("cpu")))
 
     (
         input_data,
         truth_data,
         ambient
-    ) = load_to_hdf5("../estimation/dataset/LED128x128_test_1.hdf5", DataMode.RADIANS)
+    ) = load_to_hdf5("../estimation/dataset/Only_Material_Dataset_Shorter.hdf5", DataMode.DISCRETE)
 
     model.eval()
 
@@ -84,4 +84,5 @@ def real():
 
 
 if __name__ == "__main__":
-    real()
+    # real()
+    synthetic()

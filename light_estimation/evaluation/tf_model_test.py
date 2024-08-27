@@ -7,7 +7,7 @@ from PIL import Image
 import os
 import json
 import matplotlib.pyplot as plt
-from utils import compare_discrete, print_each
+from utils import compare_discrete, print_each, compare_discrete2
 
 
 def resize_all(inputs, new_size: tuple):
@@ -85,7 +85,7 @@ def evaluate_real(model_path, print_all=False):
     model = tf.saved_model.load(model_path)
 
     images = [None] * 100
-    dirs = ["img/angle_aruco", "img/angle"]
+    dirs = ["F:\Klemen_diploma\light_estimation\evaluation\img/angle_aruco", "F:\Klemen_diploma\light_estimation\evaluation\img/angle"]
     for directory in dirs:
         for image_path in sorted(os.listdir(directory)):
             number, ext = image_path.split(sep=".")
@@ -99,24 +99,26 @@ def evaluate_real(model_path, print_all=False):
     images = numpy.array(images)
     # np.random.shuffle(images)
     labels = [None] * 100
-    for label_path in sorted(os.listdir("labels")):
+    for label_path in sorted(os.listdir("F:\Klemen_diploma\light_estimation\evaluation\labels")):
         number, ext = label_path.split(sep=".")
-        label_path = os.path.join("labels", label_path)
+        label_path = os.path.join("F:\Klemen_diploma\light_estimation\evaluation\labels", label_path)
         f = open(label_path)
         json_data = json.load(f)
         labels[int(number) - 1] = json_data["pos"]
 
     labels = numpy.array(labels)
     # np.random.shuffle(labels)
-    for image in images:
-        plt.imshow(image)
-        plt.show()
+    #for image in images:
+    #    plt.imshow(image)
+    #    plt.show()
     preds = model(images)
     '''preds = preds.numpy()
     preds[:, 0] *= 2 * numpy.pi
     preds[:, 1] *= (numpy.pi/2)'''
+    for pred in preds[0]:
+        print(tf.argmax(pred)) 
 
-    preds, labels = compare_discrete(preds, labels)
+    preds, labels = compare_discrete2(preds, labels)
 
     maeA = mean_absolute_error(numpy.array(labels)[:, 0], numpy.array(preds)[:, 0])
     maeE = mean_absolute_error(numpy.array(labels)[:, 1], numpy.array(preds)[:, 1])
@@ -140,4 +142,4 @@ if __name__ == "__main__":
     #     "../estimation/dataset/LED128x128_test_1.hdf5",
     #     "../estimation/models/f36a6f67-4402-4081-9eeb-6480ccf24a43",
     #     predict_batch_size=1000, print_all=True)  # f36a6f67-4402-4081-9eeb-6480ccf24a43 model je tist iz članka
-    evaluate_real("../estimation/models/f36a6f67-4402-4081-9eeb-6480ccf24a43", print_all=True)
+    evaluate_real("F:\Klemen_diploma\light_estimation\estimation\models_old\\f36a6f67-4402-4081-9eeb-6480ccf24a43", print_all=True)

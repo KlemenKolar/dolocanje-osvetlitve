@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader, Dataset
 from datetime import datetime
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import KBinsDiscretizer
-# from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt
 
 from estimation.config import (checkpoints_dir_path, dataset_dir_path,
                     dataset_size_stamp, default_dataset,
@@ -24,7 +24,7 @@ from estimation.enums import DataMode
 from estimation.model import create_model
 from estimation.utils import check_create_dir
 import mlflow
-from loss import *
+from estimation.loss import *
 
 
 def load_data_hdf5(
@@ -179,8 +179,8 @@ class Dataset(Dataset):
             pil_image = Image.fromarray(sample)
             sample = np.array(self.transform(pil_image))
             sample = torch.from_numpy(np.array(sample).swapaxes(0, 2).swapaxes(0, 1)).float()
-            #plt.imshow(sample, cmap='gray')
-            #plt.show()
+            plt.imshow(sample)
+            plt.show()
         return sample, label
 
 
@@ -258,15 +258,15 @@ def train(
             # Randomly apply grayscale conversion
             #transforms.RandomApply([transforms.Grayscale(num_output_channels=3)], p=1),
             # Randomly apply brightness adjustment
-            transforms.RandomApply([transforms.ColorJitter(brightness=0.2)], p=0.1),
+            transforms.RandomApply([transforms.ColorJitter(brightness=0.2)], p=1),
             # Randomly apply contrast adjustment
-            transforms.RandomApply([transforms.ColorJitter(contrast=0.2)], p=0.1),
+            #transforms.RandomApply([transforms.ColorJitter(contrast=0.2)], p=0.1),
             # Convert to tensor
-            transforms.ToTensor(),
+            #transforms.ToTensor(),
             # Randomly apply noise
             # transforms.RandomApply([transforms.Lambda(lambda x: x + torch.randn_like(x) * 0.04)], p=0.2),
             # Randomly apply Gaussian blur
-            transforms.RandomApply([transforms.GaussianBlur(kernel_size=3)], p=0.15)
+            #transforms.RandomApply([transforms.GaussianBlur(kernel_size=3)], p=0.15)
         ])
 
         patience = 10
@@ -280,6 +280,94 @@ def train(
     print(light_data_train.shape)
 
     if data_mode == DataMode.DISCRETE:
+        train_dataset = Dataset(images_train, light_data_train, transform=transform)
+        validation_dataset = Dataset(images_test, light_data_test, transform=transform)
+
+        training_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        validation_loader = DataLoader(validation_dataset, batch_size=batch_size, shuffle=False)
+
+        epoch_number = 0
+
+        best_vloss = 1_000_000.
+
+        for epoch in range(epochs):
+            start_time = time.time()
+            print('EPOCH {}:'.format(epoch_number + 1))
+
+            model.train(True)
+            model.to(device)
+
+            break
+
+            running_loss = 0.
+            last_loss = 0.
+            for i, (inputs, labels) in enumerate(training_loader):
+                # Every data instance is an input + label pair
+                inputs = torch.from_numpy(np.array(inputs).swapaxes(1, 3).swapaxes(2, 3)).float()
+                labels = labels.long()
+
+                inputs, labels = inputs.to(device), labels.to(device)
+
+                # Zero your gradients for every batch!
+                optimizer.zero_grad()
+
+                # Make predictions for this batch
+                outputs = model(inputs)
+
+                # Compute the loss and its gradients
+                loss = loss_function["angle_a"](outputs[0], labels[:, 0]) + loss_function["angle_b"](outputs[1], labels[:, 1])
+                #loss = CustomDiscreteLoss(a_bins=a_bins, b_bins=b_bins, weight_losses=False)(outputs, labels)
+                loss.backward()
+
+                # Adjust learning weights
+                optimizer.step()
+
+                # Gather data and report
+                running_loss += loss.item()
+                if i % 100 == 99:
+                    last_loss = running_loss / 100  # loss per batch
+                    print('  batch {} loss: {}'.format(i + 1, last_loss))
+                    running_loss = 0.
+
+            avg_loss = last_loss
+            running_vloss = 0.0
+
+            model.eval()
+
+            with torch.no_grad():
+                for i, (vinputs, vlabels) in enumerate(validation_loader):
+                    vinputs = torch.from_numpy(np.array(vinputs).swapaxes(1, 3).swapaxes(2, 3)).float()
+                    vlabels = vlabels.long()
+                    vinputs, vlabels = vinputs.to(device), vlabels.to(device)
+                    voutputs = model(vinputs)
+                    #vloss = loss_function(voutputs, vlabels)
+                    # vloss = loss_function["angle_a"](voutputs[0], vlabels[:, 0]) + loss_function["angle_b"](voutputs[1], vlabels[:, 1])
+                    vloss = CustomDiscreteLoss(a_bins=a_bins, b_bins=b_bins, weight_losses=False)(voutputs, vlabels)
+                    running_vloss += vloss
+
+            avg_vloss = running_vloss / (i + 1)
+            print('LOSS train {} valid {}'.format(avg_loss, avg_vloss))
+
+            if avg_vloss < best_vloss:
+                best_vloss = avg_vloss
+                model_dir = os.path.join(model_dir_path, f'{model_architecture}-{run_id}')
+                if not os.path.exists(model_dir):
+                    os.mkdir(model_dir)
+                model_path = f'{model_dir}/model_{epoch_number}id{run_id}'
+                torch.save(model.state_dict(), model_path)
+                patience = 10
+            else:
+                patience -= 1
+
+            if patience == 0:
+                print("Early stopping, no improvement for too long.")
+                break
+            epoch_number += 1
+
+            end_time = time.time()
+            print(f'Epoch {epoch_number} elapsed time: {round((end_time - start_time) / 60, 1)} minutes')
+
+    elif data_mode == DataMode.HEATMAP:
         train_dataset = Dataset(images_train, light_data_train, transform=transform)
         validation_dataset = Dataset(images_test, light_data_test, transform=transform)
 
@@ -363,7 +451,8 @@ def train(
             epoch_number += 1
 
             end_time = time.time()
-            print(f'Epoch {epoch_number} elapsed time: {round((end_time - start_time) / 60, 1)} minutes')
+            print(f'Epoch {epoch_number} elapsed time: {round((end_time - start_time) / 60, 1)} minutes') 
+    
     else:
         train_dataset = Dataset(images_train, light_data_train)
         validation_dataset = Dataset(images_test, light_data_test)
@@ -484,7 +573,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-d', '--dataset',
         help='which dataset to use for training',
-        default=default_dataset
+        default="LED128x128.hdf5"
     )
 
     parser.add_argument(
@@ -541,7 +630,7 @@ if __name__ == '__main__':
     print(*[f'{x}: {y}' for x, y in vars(args).items()], sep='\n')
 
     model = args.model + (
-        '_discrete' if args.data_mode == DataMode.DISCRETE.value else ''
+        '_discrete' if args.data_mode == DataMode.DISCRETE.value else '_heatmap' if args.data_mode == DataMode.HEATMAP.value else ''
     )
 
     load_model = args.load_model and f'{model_dir_path}/{args.load_model}'
@@ -549,7 +638,7 @@ if __name__ == '__main__':
     train(
         run_id=args.id,
         model_architecture=model,
-        dataset_path=f"{dataset_dir_path}",  # /{args.dataset}
+        dataset_path=f"{dataset_dir_path}/{args.dataset}",
         model_path=f'{model_dir_path}/{args.id}',
         weights=args.weights,
         data_mode=DataMode(args.data_mode),

@@ -12,3 +12,19 @@ light_estimation/evaluation/labels
 light_estimation/build
 light_estimation/dist
 light_estimation/light_estimation.egg-info
+biblatex
+light_estimation/mlruns
+light_estimation/models
+light_estimation/visualization/calibration_images
+slike diplomska
+light_estimation_leon
+*.pdf
+*.bib
+*.xlsx
+diploma_backup.txt
+*.zip
+light_estimation/evaluation/model_28
+light_estimation/visualization/loss_graphs
+light_estimation/mlflow_show.bat
+light_estimation/results_discrete.txt
+light_estimation/mlflow_show.bat.bat

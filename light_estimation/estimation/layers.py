@@ -40,6 +40,27 @@ class LightAnglesHeadDiscrete(nn.Module):
         a_output = self.Layer_a(x)
         b_output = self.Layer_b(x)
         return a_output, b_output
+    
+
+class LightAnglesHeadHeatmap(nn.Module):
+    def __init__(self, base_model, a_bins, b_bins):
+        super().__init__()
+        self.base_model = base_model
+        self.Layer1 = nn.Linear(1000, 256)
+        self.Layer2 = nn.Linear(256, 64)
+        self.Layer3 = nn.Linear(64, 64)
+        self.Layer_heatmap = nn.Linear(64, a_bins * b_bins)
+        self.R = nn.ReLU()
+        self.a_bins = a_bins
+        self.b_bins = b_bins
+
+    def forward(self, x):  # x je slika formata 128 x 128
+        x = self.R(self.base_model(x))
+        x = self.R(self.Layer1(x))
+        x = self.R(self.Layer2(x))
+        x = self.Layer3(x)
+        heatmap = self.Layer_heatmap(x)
+        return heatmap.view(-1, self.a_bins, self.b_bins)
 
 
 def light_angles_head(base_model):
@@ -51,6 +72,10 @@ def light_angles_head_discrete(base_model, a_bins, b_bins):
     model = LightAnglesHeadDiscrete(base_model, a_bins, b_bins)
     return model
 
+
+def light_angles_head_heatmap(base_model, a_bins, b_bins):
+    model = LightAnglesHeadHeatmap(base_model, a_bins, b_bins)
+    return model
 
 '''def light_ange_head(base_model):
     in_features = base_model.fc.in_features

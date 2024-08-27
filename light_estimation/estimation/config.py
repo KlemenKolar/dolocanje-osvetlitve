@@ -43,21 +43,21 @@ w_dataset = h_dataset = 128
 # scene_dir_path - path to the folder where blender scenes are stored
 scene_dir_path = f'{root_dir}/scene'
 # img_dir_path - path to the folder where rendered images are stored
-img_dir_path = f'{root_dir}/img'
+img_dir_path = f'{root_dir}/evaluation/img'
 # test_img_dir_path - path to the folder where real life pictures used for testing are stored
-test_img_dir_path = f'{root_dir}/test_img'
+test_img_dir_path = f'{root_dir}/evaluation/test_img'
 # labels_dir_path - path to the folder where image labels are stored
-labels_dir_path = f'{root_dir}/labels'
+labels_dir_path = f'{root_dir}/evaluation/labels'
 # dataset_dir_path - path where dataset files (.npy) are stored
-dataset_dir_path = f'{root_dir}/dataset'
+dataset_dir_path = f'{root_dir}/estimation/dataset'
 # model_dir_path - path where tensorflow models are stored
-model_dir_path = f'{root_dir}/models'
+model_dir_path = f'{root_dir}/estimation/models'
 # weights_dir_path - path where weights are stored
 weights_dir_path = f'{model_dir_path}/weights'
 # plot_dir - path to the folder where plots are saved
 plot_dir_path = f'{root_dir}/plots'
 # logs_dir_path - path to tensorboard logs
-logs_dir_path = f'{root_dir}/logs'
+logs_dir_path = f'{root_dir}/estimaiton/logs'
 # checkpoints_dir_path - path to checkpoints saved during training
 checkpoints_dir_path = f'{root_dir}/checkpoints'
 
@@ -87,6 +87,6 @@ batch_size = 32
 # epochs
 epochs = 200
 # default_dataset
-default_dataset = 'CY46K'
+default_dataset = 'Only_Material_Dataset_Shorter.hdf5'
 # test_size
 test_size = 0.1

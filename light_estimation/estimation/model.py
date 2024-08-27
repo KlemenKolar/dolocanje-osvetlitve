@@ -33,6 +33,19 @@ def efficient_net_b3_discrete(
     return light_angles
 
 
+def efficient_net_b3_heatmap(
+    weights: str = None,
+    a_bins: int = 32,
+    b_bins: int = 16
+) -> nn.Module:
+    base_model = models.efficientnet_b3(
+        weights=weights,
+    )
+    light_angles = light_angles_head_heatmap(base_model, a_bins, b_bins)
+
+    return light_angles
+
+
 def create_model(
     model_architecture: str,
     weights=weights,
@@ -46,6 +59,12 @@ def create_model(
         )
 
     if data_mode == DataMode.DISCRETE:
+        return globals()[model_architecture](
+            weights=weights,
+            a_bins=a_bins,
+            b_bins=b_bins
+        )
+    elif data_mode == DataMode.HEATMAP:
         return globals()[model_architecture](
             weights=weights,
             a_bins=a_bins,

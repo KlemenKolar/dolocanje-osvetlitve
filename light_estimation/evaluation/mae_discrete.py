@@ -16,13 +16,13 @@ import json
 
 def synthetic():
     model = efficient_net_b3_discrete()
-    model.load_state_dict(torch.load("../estimation/models/efficient_net_b3_discrete-2642024/model_28", map_location=torch.device("cpu")))
+    model.load_state_dict(torch.load("F:\Klemen_diploma\light_estimation\estimation\models\efficient_net_b3_discrete-big-dataset-randnoise\model_65", map_location=torch.device("cpu")))
 
     (
         input_data,
         truth_data,
         ambient
-    ) = load_to_hdf5("../estimation/dataset/Only_Material_Dataset_Shorter.hdf5", DataMode.DISCRETE)
+    ) = load_to_hdf5("F:\Klemen_diploma\light_estimation\estimation\dataset\LED128x128_test_1.hdf5", DataMode.DISCRETE)
 
     model.eval()
 
@@ -30,7 +30,7 @@ def synthetic():
 
     preds = [preds[0].detach().numpy(), preds[1].detach().numpy()]
 
-    preds_bin, truth_bin = compare_discrete(preds, truth_data)
+    preds_bin, truth_bin = compare_discrete2(preds, truth_data)
 
     maeA = mean_absolute_error(numpy.array(truth_bin)[:, 0], numpy.array(preds_bin)[:, 0])
     maeE = mean_absolute_error(numpy.array(truth_bin)[:, 1], numpy.array(preds_bin)[:, 1])
@@ -43,12 +43,12 @@ def synthetic():
 
 def real():
     model = efficient_net_b3_discrete()
-    model.load_state_dict(torch.load("../estimation/models/efficient_net_b3_discrete-2642024/model_28", map_location=torch.device("cpu")))
+    model.load_state_dict(torch.load("F:\Klemen_diploma\light_estimation\estimation\models\efficient_net_b3_discrete-big-dataset-randnoise\model_65", map_location=torch.device("cpu")))
 
     model.eval()
 
     images = [None] * 100
-    dirs = ["img/angle_aruco", "img/angle"]
+    dirs = ["F:\Klemen_diploma\light_estimation\evaluation\img/angle_aruco", "F:\Klemen_diploma\light_estimation\evaluation\img/angle"]
     for directory in dirs:
         for image_path in sorted(os.listdir(directory)):
             number, ext = image_path.split(sep=".")
@@ -61,9 +61,9 @@ def real():
     images = np.array(images)
     # np.random.shuffle(images)
     labels = [None] * 100
-    for label_path in sorted(os.listdir("labels")):
+    for label_path in sorted(os.listdir("F:\Klemen_diploma\light_estimation\evaluation\labels")):
         number, ext = label_path.split(sep=".")
-        label_path = os.path.join("labels", label_path)
+        label_path = os.path.join("F:\Klemen_diploma\light_estimation\evaluation\labels", label_path)
         f = open(label_path)
         json_data = json.load(f)
         labels[int(number) - 1] = json_data["pos"]
@@ -84,5 +84,5 @@ def real():
 
 
 if __name__ == "__main__":
-    # real()
+    #real()
     synthetic()

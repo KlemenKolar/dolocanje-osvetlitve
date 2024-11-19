@@ -34,7 +34,7 @@ def subplot_dataset_short():
 
 def subplot_dataset_big():
     images,_,_ = load_to_hdf5('F:\Klemen_diploma\light_estimation\estimation\dataset\LED128x128.hdf5', data_mode=DataMode.RADIANS)
-    plt.suptitle("Podatkovna množica Synthetic_128_128_big", fontsize=14)
+    plt.suptitle("Podatkovna množica SynthA", fontsize=14)
     plt.subplot(2, 3, 1)
     plt.imshow(images[39+20000])
     plt.subplot(2, 3, 2)
@@ -92,6 +92,6 @@ def subplot_dataset_test_real():
 
 if __name__ == '__main__':
     #plot_dataset()
-    #subplot_dataset_big()
+    subplot_dataset_big()
     #subplot_dataset_test()
-    subplot_dataset_test_real()
+    #subplot_dataset_test_real()

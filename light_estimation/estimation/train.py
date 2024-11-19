@@ -14,6 +14,7 @@ from datetime import datetime
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import KBinsDiscretizer
 from matplotlib import pyplot as plt
+from estimation.augmentation import *
 
 from estimation.config import (checkpoints_dir_path, dataset_dir_path,
                     dataset_size_stamp, default_dataset,
@@ -22,9 +23,12 @@ from estimation.config import (checkpoints_dir_path, dataset_dir_path,
                     train_test_split_random_state)
 from estimation.enums import DataMode
 from estimation.model import create_model
-from estimation.utils import check_create_dir
+from estimation.utils import check_create_dir, get_index_from_heatmap
+from estimation.interpolate import get_interpolated_matrix, get_interpolated_vector, get_interpolated_gauss_matrix
+import torch.nn.functional as F
 import mlflow
 from estimation.loss import *
+import json
 
 
 def load_data_hdf5(
@@ -38,7 +42,7 @@ def load_data_hdf5(
         ambient = np.array(file['ambient'], dtype=float)
         light_angles = np.array(file['light_angles'], dtype=float)
 
-        if data_mode == DataMode.DISCRETE:
+        if data_mode == DataMode.DISCRETE or data_mode == DataMode.HEATMAP:
             n = images.shape[0]
             light_data = np.zeros((n, 2))
 
@@ -107,23 +111,28 @@ def load_data_npy(
     )
 
 
-def log_training_parameters(run_id, model_architecture, dataset_path, model_path, weights, data_mode, learning_rate, batch_size, epochs, a_bins, b_bins, load_model, transform, epoch_reached, model):
-    mlflow.start_run(run_id=f'{model_architecture}-{run_id}')
-    mlflow.log_param("model_architecture", model_architecture)
-    mlflow.log_param("dataset_path", dataset_path)
-    mlflow.log_param("model_path", model_path)
-    mlflow.log_param("weights", weights)
-    mlflow.log_param("data_mode", data_mode)
-    mlflow.log_param("learning_rate", learning_rate)
-    mlflow.log_param("batch_size", batch_size)
-    mlflow.log_param("epochs", epochs)
-    mlflow.log_param("a_bins", a_bins)
-    mlflow.log_param("b_bins", b_bins)
-    mlflow.log_param("load_model", load_model)
-    mlflow.log_param("transform", transform)
-    mlflow.log_param("erpoch_reached", epoch_reached)
-    mlflow.pytorch.log_model(model, f'model_{epoch_reached}id{run_id}')
-    mlflow.end_run()
+def log_training_parameters(id, model_architecture, dataset_path, model_path, weights, data_mode, learning_rate,
+                             batch_size, epochs, a_bins, b_bins, load_model, transform, epoch_reached, model,
+                             loss_history, vloss_history, full_elapsed_time):
+    with mlflow.start_run():
+        mlflow.log_param("id", id)
+        mlflow.log_param("model_architecture", model_architecture)
+        mlflow.log_param("dataset_path", dataset_path)
+        mlflow.log_param("model_path", model_path)
+        mlflow.log_param("weights", weights)
+        mlflow.log_param("data_mode", data_mode)
+        mlflow.log_param("learning_rate", learning_rate)
+        mlflow.log_param("batch_size", batch_size)
+        mlflow.log_param("epochs", epochs)
+        mlflow.log_param("a_bins", a_bins)
+        mlflow.log_param("b_bins", b_bins)
+        mlflow.log_param("load_model", load_model)
+        mlflow.log_param("transform", transform)
+        mlflow.log_param("erpoch_reached", epoch_reached)
+        mlflow.log_param("loss_history", loss_history)
+        mlflow.log_param("vloss_history", vloss_history)
+        mlflow.log_param("full_elapsed_time", full_elapsed_time)
+        mlflow.pytorch.log_model(model, f'model_{epoch_reached}id{id}')
 
 
 def load_data(
@@ -178,9 +187,9 @@ class Dataset(Dataset):
         if self.transform:
             pil_image = Image.fromarray(sample)
             sample = np.array(self.transform(pil_image))
-            sample = torch.from_numpy(np.array(sample).swapaxes(0, 2).swapaxes(0, 1)).float()
-            plt.imshow(sample)
-            plt.show()
+            #sample = torch.from_numpy(np.array(sample).swapaxes(0, 2).swapaxes(1, 2)).float()
+            #plt.imshow(sample, cmap='gray')
+            #plt.show()
         return sample, label
 
 
@@ -232,7 +241,6 @@ def train(
         model = models.efficientnet_b3(pretrained=True)
         checkpoint = torch.load(load_model)
         model.load_state_dict(checkpoint)
-
     else:
         model = create_model(
             model_architecture,
@@ -248,26 +256,26 @@ def train(
             DataMode.DISCRETE: {
                 "angle_a": nn.CrossEntropyLoss(),
                 "angle_b": nn.CrossEntropyLoss(),
-            }
+            },
+            #DataMode.HEATMAP: nn.CrossEntropyLoss(),
+            #DataMode.HEATMAP: CircularDistanceLoss(a_bins=a_bins)
+            DataMode.HEATMAP: nn.KLDivLoss(reduction='batchmean'),
         }[data_mode]
 
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-        # Define your transformations
         transform = transforms.Compose([
-            # Randomly apply grayscale conversion
-            #transforms.RandomApply([transforms.Grayscale(num_output_channels=3)], p=1),
-            # Randomly apply brightness adjustment
-            transforms.RandomApply([transforms.ColorJitter(brightness=0.2)], p=1),
-            # Randomly apply contrast adjustment
-            #transforms.RandomApply([transforms.ColorJitter(contrast=0.2)], p=0.1),
-            # Convert to tensor
-            #transforms.ToTensor(),
-            # Randomly apply noise
-            # transforms.RandomApply([transforms.Lambda(lambda x: x + torch.randn_like(x) * 0.04)], p=0.2),
-            # Randomly apply Gaussian blur
-            #transforms.RandomApply([transforms.GaussianBlur(kernel_size=3)], p=0.15)
+            #RandomBrightness(mean=1.0, std=0.2),
+            #RandomContrast(mean=1.0, std=0.2),
+            #RandomSaturation(mean=1.0, std=0.2),
+            #RandomHue(mean=0.0, std=0.1),
         ])
+
+        #transform = transforms.Compose([
+        #    RandomHue(0.0, std=0.1)
+        #])
+
+        transform = None
 
         patience = 10
 
@@ -276,6 +284,11 @@ def train(
         model.to(device)
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+
+        loss_history = []
+        vloss_history = [] 
+
+        full_elapsed_time = 0
 
     print(light_data_train.shape)
 
@@ -297,8 +310,6 @@ def train(
             model.train(True)
             model.to(device)
 
-            break
-
             running_loss = 0.
             last_loss = 0.
             for i, (inputs, labels) in enumerate(training_loader):
@@ -306,7 +317,7 @@ def train(
                 inputs = torch.from_numpy(np.array(inputs).swapaxes(1, 3).swapaxes(2, 3)).float()
                 labels = labels.long()
 
-                inputs, labels = inputs.to(device), labels.to(device)
+                inputs = inputs.to(device)
 
                 # Zero your gradients for every batch!
                 optimizer.zero_grad()
@@ -315,8 +326,17 @@ def train(
                 outputs = model(inputs)
 
                 # Compute the loss and its gradients
+                labels = labels.to(device)
                 loss = loss_function["angle_a"](outputs[0], labels[:, 0]) + loss_function["angle_b"](outputs[1], labels[:, 1])
-                #loss = CustomDiscreteLoss(a_bins=a_bins, b_bins=b_bins, weight_losses=False)(outputs, labels)
+
+                #softmax_labels_a = get_interpolated_vector(a_bins, labels[:, 0].numpy()) kldivergence
+                #softmax_labels_b = get_interpolated_vector(b_bins, labels[:, 0].numpy())
+                #softmax_outputs_a = F.log_softmax(outputs[0], dim=1)
+                #softmax_outputs_b = F.log_softmax(outputs[1], dim=1)
+                #softmax_labels_a, softmax_outputs_a, softmax_labels_b, softmax_outputs_b = softmax_labels_a.to(device), softmax_outputs_a.to(device), softmax_labels_b.to(device), softmax_outputs_b.to(device)
+                #loss = loss_function["angle_a"](softmax_outputs_a, softmax_labels_a) + loss_function["angle_b"](softmax_outputs_b, softmax_labels_b)
+
+                # loss = CustomDiscreteLoss(a_bins=a_bins, b_bins=b_bins, weight_losses=False)(outputs, labels)
                 loss.backward()
 
                 # Adjust learning weights
@@ -324,6 +344,7 @@ def train(
 
                 # Gather data and report
                 running_loss += loss.item()
+                
                 if i % 100 == 99:
                     last_loss = running_loss / 100  # loss per batch
                     print('  batch {} loss: {}'.format(i + 1, last_loss))
@@ -338,22 +359,33 @@ def train(
                 for i, (vinputs, vlabels) in enumerate(validation_loader):
                     vinputs = torch.from_numpy(np.array(vinputs).swapaxes(1, 3).swapaxes(2, 3)).float()
                     vlabels = vlabels.long()
-                    vinputs, vlabels = vinputs.to(device), vlabels.to(device)
+                    vinputs = vinputs.to(device)
                     voutputs = model(vinputs)
                     #vloss = loss_function(voutputs, vlabels)
-                    # vloss = loss_function["angle_a"](voutputs[0], vlabels[:, 0]) + loss_function["angle_b"](voutputs[1], vlabels[:, 1])
-                    vloss = CustomDiscreteLoss(a_bins=a_bins, b_bins=b_bins, weight_losses=False)(voutputs, vlabels)
-                    running_vloss += vloss
+                    vlabels = vlabels.to(device)
+                    vloss = loss_function["angle_a"](voutputs[0], vlabels[:, 0]) + loss_function["angle_b"](voutputs[1], vlabels[:, 1])
+
+                    #softmax_vlabels_a = get_interpolated_vector(a_bins, labels[:, 0].numpy())
+                    #softmax_vlabels_b = get_interpolated_vector(b_bins, labels[:, 0].numpy())
+                    #softmax_voutputs_a = F.log_softmax(outputs[0], dim=1)
+                    #softmax_voutputs_b = F.log_softmax(outputs[1], dim=1)
+                    #softmax_vlabels_a, softmax_voutputs_a, softmax_vlabels_b, softmax_voutputs_b = softmax_vlabels_a.to(device), softmax_voutputs_a.to(device), softmax_vlabels_b.to(device), softmax_voutputs_b.to(device)
+                    #vloss = loss_function["angle_a"](softmax_voutputs_a, softmax_vlabels_a) + loss_function["angle_b"](softmax_voutputs_b, softmax_vlabels_b)
+
+                    # vloss = CustomDiscreteLoss(a_bins=a_bins, b_bins=b_bins, weight_losses=False)(voutputs, vlabels)
+                    running_vloss += vloss.item()
 
             avg_vloss = running_vloss / (i + 1)
             print('LOSS train {} valid {}'.format(avg_loss, avg_vloss))
+            loss_history.append(avg_loss)
+            vloss_history.append(avg_vloss)
 
             if avg_vloss < best_vloss:
                 best_vloss = avg_vloss
                 model_dir = os.path.join(model_dir_path, f'{model_architecture}-{run_id}')
                 if not os.path.exists(model_dir):
                     os.mkdir(model_dir)
-                model_path = f'{model_dir}/model_{epoch_number}id{run_id}'
+                model_path = f'{model_dir}/model_{epoch_number}'
                 torch.save(model.state_dict(), model_path)
                 patience = 10
             else:
@@ -365,7 +397,9 @@ def train(
             epoch_number += 1
 
             end_time = time.time()
-            print(f'Epoch {epoch_number} elapsed time: {round((end_time - start_time) / 60, 1)} minutes')
+            epoch_time = round((end_time - start_time) / 60, 1)
+            full_elapsed_time += epoch_time
+            print(f'Epoch {epoch_number} elapsed time: {epoch_time} minutes')
 
     elif data_mode == DataMode.HEATMAP:
         train_dataset = Dataset(images_train, light_data_train, transform=transform)
@@ -392,7 +426,9 @@ def train(
                 inputs = torch.from_numpy(np.array(inputs).swapaxes(1, 3).swapaxes(2, 3)).float()
                 labels = labels.long()
 
-                inputs, labels = inputs.to(device), labels.to(device)
+                labels_merged = labels[:, 0] * b_bins + labels[:, 1]
+
+                inputs = inputs.to(device)
 
                 # Zero your gradients for every batch!
                 optimizer.zero_grad()
@@ -400,16 +436,46 @@ def train(
                 # Make predictions for this batch
                 outputs = model(inputs)
 
-                # Compute the loss and its gradients
-                # loss = loss_function["angle_a"](outputs[0], labels[:, 0]) + loss_function["angle_b"](outputs[1], labels[:, 1])
-                loss = CustomDiscreteLoss(a_bins=a_bins, b_bins=b_bins, weight_losses=False)(outputs, labels)
-                loss.backward()
+                '''outputs = outputs.cpu()
 
+                # Extract angles from the output matrices
+                outputs =  torch.tensor(np.array([torch.unravel_index(torch.argmax(output), output.shape) for output in outputs]).astype(np.float32), requires_grad=True)
+
+                outputs = outputs.to(device)'''
+
+                # Compute the loss and its gradients
+                # loss = loss_function["angle_a"](outputs[:, 0], labels[:, 0]) + loss_function["angle_b"](outputs[:, 1], labels[:, 1]) na ta način odkomentiraš zgornjo kodo in v layers.py vračaš return heatmap.view(-1, self.a_bins, self.b_bins)
+                # loss = CustomDiscreteLoss(a_bins=a_bins, b_bins=b_bins, weight_losses=False)(outputs, labels)
+                
+
+                #1. uncomment if you want to use KLDivergenceloss softmax
+                #softmax_labels = get_interpolated_matrix(a_bins, b_bins, labels_merged, zero=True)
+                #softmax_outputs = F.log_softmax(outputs, dim=1)
+                #softmax_labels, softmax_outputs = softmax_labels.to(device), softmax_outputs.to(device)
+                #loss = loss_function(softmax_outputs, softmax_labels)
+                
+                #2.uncomment for crossentropyloss
+                #labels_merged, outputs = labels_merged.to(device), outputs.to(device) 
+                #loss = loss_function(outputs, labels_merged)
+
+                #3. uncomment for circulardistanceloss
+                #outputs_indexes = torch.tensor(get_index_from_heatmap(outputs.cpu(), b_bins), requires_grad=True)
+                #outputs_indexes, labels = outputs_indexes.to(device), labels.to(device)
+                #loss = loss_function(outputs_indexes, labels)
+
+                #4. uncomment for KLDiv/crossent loss gauss normalized
+                labels = get_interpolated_gauss_matrix(a_bins, b_bins, labels_merged, sigma=3)
+                softmax_outputs = F.log_softmax(outputs, dim=1)
+                labels, softmax_outputs = labels.to(device), softmax_outputs.to(device)
+                loss = loss_function(softmax_outputs, labels)
+
+                loss.backward()
                 # Adjust learning weights
                 optimizer.step()
 
                 # Gather data and report
                 running_loss += loss.item()
+                
                 if i % 100 == 99:
                     last_loss = running_loss / 100  # loss per batch
                     print('  batch {} loss: {}'.format(i + 1, last_loss))
@@ -424,22 +490,50 @@ def train(
                 for i, (vinputs, vlabels) in enumerate(validation_loader):
                     vinputs = torch.from_numpy(np.array(vinputs).swapaxes(1, 3).swapaxes(2, 3)).float()
                     vlabels = vlabels.long()
-                    vinputs, vlabels = vinputs.to(device), vlabels.to(device)
+                    vlabels_merged = vlabels[:, 0] * b_bins + vlabels[:, 1]
+                    vinputs = vinputs.to(device)
                     voutputs = model(vinputs)
+                    '''voutputs = voutputs.cpu()
+                    voutputs =  torch.tensor(np.array([torch.unravel_index(torch.argmax(voutput), voutput.shape) for voutput in voutputs]).astype(np.float32), requires_grad=True)
+                    voutputs = voutputs.to(device)
                     #vloss = loss_function(voutputs, vlabels)
-                    # vloss = loss_function["angle_a"](voutputs[0], vlabels[:, 0]) + loss_function["angle_b"](voutputs[1], vlabels[:, 1])
-                    vloss = CustomDiscreteLoss(a_bins=a_bins, b_bins=b_bins, weight_losses=False)(voutputs, vlabels)
-                    running_vloss += vloss
+                    vloss = loss_function["angle_a"](voutputs[:, 0], vlabels[:, 0]) + loss_function["angle_b"](voutputs[:, 1], vlabels[:, 1])'''
+                    # vloss = CustomDiscreteLoss(a_bins=a_bins, b_bins=b_bins, weight_losses=False)(voutputs, vlabels)
+                    
+                    #1. uncomment for crossentropyloss
+                    #vlabels_merged = vlabels_merged.to(device)
+                    #vloss = loss_function(voutputs, vlabels_merged)
+
+                    #2. uncomment for kldiv loss
+                    #softmax_vlabels = get_interpolated_matrix(a_bins, b_bins, vlabels_merged, zero=True)
+                    #softmax_voutputs = F.log_softmax(voutputs, dim=1)
+                    #softmax_vlabels, softmax_voutputs = softmax_vlabels.to(device), softmax_voutputs.to(device)
+                    #vloss = loss_function(softmax_voutputs, softmax_vlabels)
+
+                    #3. uncomment for circular distance loss
+                    #voutputs_indexes = torch.tensor(get_index_from_heatmap(outputs.cpu(), b_bins), requires_grad=True)
+                    #voutputs_indexes = voutputs_indexes.to(device), vlabels.to(device)
+                    #vloss = loss_function(voutputs_indexes, vlabels)
+
+                    #4. uncomment for KLDiv/crossent loss gauss normalized
+                    vlabels = get_interpolated_gauss_matrix(a_bins, b_bins, vlabels_merged, sigma=3)
+                    softmax_voutputs = F.log_softmax(voutputs, dim=1)
+                    vlabels, softmax_voutputs = vlabels.to(device), softmax_voutputs.to(device)
+                    vloss = loss_function(softmax_voutputs, vlabels)
+
+                    running_vloss += vloss.item()
 
             avg_vloss = running_vloss / (i + 1)
             print('LOSS train {} valid {}'.format(avg_loss, avg_vloss))
+            loss_history.append(avg_loss)
+            vloss_history.append(avg_vloss)
 
             if avg_vloss < best_vloss:
                 best_vloss = avg_vloss
                 model_dir = os.path.join(model_dir_path, f'{model_architecture}-{run_id}')
                 if not os.path.exists(model_dir):
                     os.mkdir(model_dir)
-                model_path = f'{model_dir}/model_{epoch_number}id{run_id}'
+                model_path = f'{model_dir}/model_{epoch_number}'
                 torch.save(model.state_dict(), model_path)
                 patience = 10
             else:
@@ -451,8 +545,9 @@ def train(
             epoch_number += 1
 
             end_time = time.time()
-            print(f'Epoch {epoch_number} elapsed time: {round((end_time - start_time) / 60, 1)} minutes') 
-    
+            epoch_time = round((end_time - start_time) / 60, 1)
+            full_elapsed_time += epoch_time
+            print(f'Epoch {epoch_number} elapsed time: {epoch_time} minutes')  
     else:
         train_dataset = Dataset(images_train, light_data_train)
         validation_dataset = Dataset(images_test, light_data_test)
@@ -511,17 +606,19 @@ def train(
                     vinputs, vlabels = vinputs.to(device), vlabels.to(device)
                     voutputs = model(vinputs)
                     vloss = loss_function(voutputs, vlabels)
-                    running_vloss += vloss
+                    running_vloss += vloss.item()
 
             avg_vloss = running_vloss / (i + 1)
             print('LOSS train {} valid {}'.format(avg_loss, avg_vloss))
+            loss_history.append(avg_loss)
+            vloss_history.append(avg_vloss)
 
             if avg_vloss < best_vloss:
                 best_vloss = avg_vloss
                 model_dir = os.path.join(model_dir_path, f'{model_architecture}-{run_id}')
                 if not os.path.exists(model_dir):
                     os.mkdir(model_dir)
-                model_path = f'{model_dir}/model_{epoch_number}id{run_id}'
+                model_path = f'{model_dir}/model_{epoch_number}'
                 torch.save(model.state_dict(), model_path)
                 patience = 10
             else:
@@ -533,13 +630,17 @@ def train(
             epoch_number += 1
 
             end_time = time.time()
-            print(f'Epoch {epoch_number} elapsed time: {round((end_time - start_time) / 60, 1)}')
-        
+            epoch_time = round((end_time - start_time) / 60, 1)
+            full_elapsed_time += epoch_time
+            print(f'Epoch {epoch_number} elapsed time: {epoch_time} minutes')
+
+    loss_history=json.dumps(loss_history)
+    vloss_history=json.dumps(vloss_history)    
     log_training_parameters(
-        run_id=run_id,
+        id=run_id,
         model_architecture=model_architecture,
         dataset_path=dataset_dir_path,
-        model_path=model_dir_path,
+        model_path=model_dir,
         weights=weights,
         data_mode=DataMode(data_mode),
         learning_rate=args.learning_rate,
@@ -550,7 +651,10 @@ def train(
         load_model=load_model,
         transform=transform,
         epoch_reached=epoch_number,
-        model=model
+        model=model,
+        loss_history=json.dumps(loss_history),
+        vloss_history=json.dumps(vloss_history),
+        full_elapsed_time=full_elapsed_time,
     )
 
 
@@ -561,7 +665,8 @@ if __name__ == '__main__':
         '-id',
         help='run id',
         type=str,
-        required=False
+        required=False,
+        default='No_id'
     )
 
     parser.add_argument(
@@ -573,20 +678,21 @@ if __name__ == '__main__':
     parser.add_argument(
         '-d', '--dataset',
         help='which dataset to use for training',
-        default="LED128x128.hdf5"
+        default=default_dataset
     )
 
     parser.add_argument(
         '-w', '--weights',
         help="path for pretrained weights file",
-        default=models.EfficientNet_B3_Weights.DEFAULT # Pretrained weights, you can put None if you don't want this
+        default=None,
+        #default=models.EfficientNet_B7_Weights.IMAGENET1K_V1 # Pretrained weights, you can put None if you don't want this
     )
 
     parser.add_argument(
         '--data_mode',
         help='data mode',
         choices=[x.value for x in DataMode],
-        default=DataMode.DISCRETE.value
+        default=DataMode.RADIANS.value
     )
 
     parser.add_argument(
@@ -625,12 +731,23 @@ if __name__ == '__main__':
         default=None
     )
 
+    parser.add_argument(
+        '--add_model_arg',
+        help='additional argument for model architecture',
+        choices=['no_bottleneck', 'no_bottleneck2', 'no_bottleneck_no_relu'],
+        default=''
+    )
+
     args = parser.parse_args()
 
     print(*[f'{x}: {y}' for x, y in vars(args).items()], sep='\n')
 
     model = args.model + (
-        '_discrete' if args.data_mode == DataMode.DISCRETE.value else '_heatmap' if args.data_mode == DataMode.HEATMAP.value else ''
+        '_discrete'  if args.data_mode == DataMode.DISCRETE.value else '_heatmap' if args.data_mode == DataMode.HEATMAP.value else ''
+    )
+
+    model = model + (
+        f'_{args.add_model_arg}'  if args.add_model_arg != '' else ''
     )
 
     load_model = args.load_model and f'{model_dir_path}/{args.load_model}'
@@ -638,7 +755,7 @@ if __name__ == '__main__':
     train(
         run_id=args.id,
         model_architecture=model,
-        dataset_path=f"{dataset_dir_path}/{args.dataset}",
+        dataset_path=f"{dataset_dir_path}", #/{args.dataset}",
         model_path=f'{model_dir_path}/{args.id}',
         weights=args.weights,
         data_mode=DataMode(args.data_mode),

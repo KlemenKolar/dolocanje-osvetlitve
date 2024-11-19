@@ -6,7 +6,9 @@ import torchvision.models as models
 
 from estimation.config import h_dataset, w_dataset, weights
 from estimation.enums import DataMode
-from estimation.layers import light_angles_head_discrete, light_angles_head
+from estimation.layers import (light_angles_head_discrete, light_angles_head, light_angles_head_heatmap,
+                               light_angles_head_heatmap_no_bottleneck, light_angles_head_heatmap_no_bottleneck_no_relu,
+                               light_angles_head_heatmap_no_bottleneck2)
 
 
 def efficient_net_b3(
@@ -32,6 +34,30 @@ def efficient_net_b3_discrete(
 
     return light_angles
 
+def efficient_net_b5_discrete(
+    weights: str = None,
+    a_bins: int = 32,
+    b_bins: int = 16
+) -> nn.Module:
+    base_model = models.efficientnet_b5(
+        weights=weights,
+    )
+    light_angles = light_angles_head_discrete(base_model, a_bins, b_bins)
+
+    return light_angles
+
+def efficient_net_b7_discrete(
+    weights: str = None,
+    a_bins: int = 32,
+    b_bins: int = 16
+) -> nn.Module:
+    base_model = models.efficientnet_b7(
+        weights=weights,
+    )
+    light_angles = light_angles_head_discrete(base_model, a_bins, b_bins)
+
+    return light_angles
+
 
 def efficient_net_b3_heatmap(
     weights: str = None,
@@ -42,6 +68,149 @@ def efficient_net_b3_heatmap(
         weights=weights,
     )
     light_angles = light_angles_head_heatmap(base_model, a_bins, b_bins)
+
+    return light_angles
+
+
+def efficient_net_b3_heatmap_no_bottleneck(
+    weights: str = None,
+    a_bins: int = 32,
+    b_bins: int = 16
+) -> nn.Module:
+    base_model = models.efficientnet_b3(
+        weights=weights,
+    )
+    light_angles = light_angles_head_heatmap_no_bottleneck(base_model, a_bins, b_bins)
+
+    return light_angles
+
+
+def efficient_net_b3_heatmap_no_bottleneck_no_relu(
+    weights: str = None,
+    a_bins: int = 32,
+    b_bins: int = 16
+) -> nn.Module:
+    base_model = models.efficientnet_b3(
+        weights=weights,
+    )
+    light_angles = light_angles_head_heatmap_no_bottleneck_no_relu(base_model, a_bins, b_bins)
+
+    return light_angles
+
+
+def efficient_net_b3_heatmap_no_bottleneck2(
+    weights: str = None,
+    a_bins: int = 32,
+    b_bins: int = 16
+) -> nn.Module:
+    base_model = models.efficientnet_b3(
+        weights=weights,
+    )
+    light_angles = light_angles_head_heatmap_no_bottleneck2(base_model, a_bins, b_bins)
+
+    return light_angles
+
+
+def efficient_net_b5_heatmap(
+    weights: str = None,
+    a_bins: int = 32,
+    b_bins: int = 16
+) -> nn.Module:
+    base_model = models.efficientnet_b5(
+        weights=weights,
+    )
+    light_angles = light_angles_head_heatmap(base_model, a_bins, b_bins)
+
+    return light_angles
+
+
+def efficient_net_b5_heatmap_no_bottleneck(
+    weights: str = None,
+    a_bins: int = 32,
+    b_bins: int = 16
+) -> nn.Module:
+    base_model = models.efficientnet_b5(
+        weights=weights,
+    )
+    light_angles = light_angles_head_heatmap_no_bottleneck(base_model, a_bins, b_bins)
+
+    return light_angles
+
+
+def efficient_net_b5_heatmap_no_bottleneck2(
+    weights: str = None,
+    a_bins: int = 32,
+    b_bins: int = 16
+) -> nn.Module:
+    base_model = models.efficientnet_b5(
+        weights=weights,
+    )
+    light_angles = light_angles_head_heatmap_no_bottleneck2(base_model, a_bins, b_bins)
+
+    return light_angles
+
+
+def efficient_net_b5_heatmap_no_bottleneck_no_relu(
+    weights: str = None,
+    a_bins: int = 32,
+    b_bins: int = 16
+) -> nn.Module:
+    base_model = models.efficientnet_b5(
+        weights=weights,
+    )
+    light_angles = light_angles_head_heatmap_no_bottleneck_no_relu(base_model, a_bins, b_bins)
+
+    return light_angles
+
+
+def efficient_net_b7_heatmap(
+    weights: str = None,
+    a_bins: int = 32,
+    b_bins: int = 16
+) -> nn.Module:
+    base_model = models.efficientnet_b7(
+        weights=weights,
+    )
+    light_angles = light_angles_head_heatmap(base_model, a_bins, b_bins)
+
+    return light_angles
+
+
+def efficient_net_b7_heatmap_no_bottleneck(
+    weights: str = None,
+    a_bins: int = 32,
+    b_bins: int = 16
+) -> nn.Module:
+    base_model = models.efficientnet_b7(
+        weights=weights,
+    )
+    light_angles = light_angles_head_heatmap_no_bottleneck(base_model, a_bins, b_bins)
+
+    return light_angles
+
+
+def efficient_net_b7_heatmap_no_bottleneck_no_relu(
+    weights: str = None,
+    a_bins: int = 32,
+    b_bins: int = 16
+) -> nn.Module:
+    base_model = models.efficientnet_b7(
+        weights=weights,
+    )
+    light_angles = light_angles_head_heatmap_no_bottleneck_no_relu(base_model, a_bins, b_bins)
+
+    return light_angles
+
+
+def efficient_net_b7_heatmap_no_bottleneck2(
+    weights: str = None,
+    a_bins: int = 32,
+    b_bins: int = 16
+) -> nn.Module:
+    base_model = models.efficientnet_b7(
+        weights=weights,
+    )
+    light_angles = light_angles_head_heatmap_no_bottleneck2(base_model, a_bins, b_bins)
 
     return light_angles
 

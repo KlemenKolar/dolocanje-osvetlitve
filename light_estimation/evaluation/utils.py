@@ -3,6 +3,8 @@ from estimation.enums import DataMode
 import h5py
 from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.preprocessing import KBinsDiscretizer
+import matplotlib.pyplot as plt
+import os
 
 # Helper functions
 
@@ -106,3 +108,11 @@ def load_to_hdf5(
                 light_data[:, 1] /= np.pi / 2
 
     return images, light_data, ambient
+
+
+def visualize_heatmap(preds, dest_dir, model_name, a_bins=32, b_bins=16):
+    for i, pred in enumerate(preds):
+        plt.imshow(pred.reshape(a_bins, b_bins), cmap='autumn', extent=[0,60,360,0], aspect=str((60 / 360) * 2))
+        if not os.path.exists(f"{dest_dir}/{model_name}-HEATMAPS"):
+            os.mkdir(f"{dest_dir}/{model_name}-HEATMAPS")
+        plt.savefig(f"{dest_dir}/{model_name}-HEATMAPS/{i}.pdf")

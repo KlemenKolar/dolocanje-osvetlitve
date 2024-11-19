@@ -40,7 +40,7 @@ class LightAnglesHeadDiscrete(nn.Module):
         a_output = self.Layer_a(x)
         b_output = self.Layer_b(x)
         return a_output, b_output
-    
+
 
 class LightAnglesHeadHeatmap(nn.Module):
     def __init__(self, base_model, a_bins, b_bins):
@@ -60,7 +60,63 @@ class LightAnglesHeadHeatmap(nn.Module):
         x = self.R(self.Layer2(x))
         x = self.Layer3(x)
         heatmap = self.Layer_heatmap(x)
-        return heatmap.view(-1, self.a_bins, self.b_bins)
+        #heatmap =  heatmap.view(-1, self.a_bins, self.b_bins)
+        return heatmap
+    
+
+class LightAnglesHeadHeatmapNoBottleneck(nn.Module):
+    def __init__(self, base_model, a_bins, b_bins):
+        super().__init__()
+        self.base_model = base_model
+        self.Layer1 = nn.Linear(1000, 1000)
+        self.Layer_heatmap = nn.Linear(1000, a_bins * b_bins)
+        self.R = nn.ReLU()
+        self.a_bins = a_bins
+        self.b_bins = b_bins
+
+    def forward(self, x):
+        x = self.R(self.base_model(x))
+        x = self.Layer1(x)
+        heatmap = self.Layer_heatmap(x)
+        return heatmap
+    
+
+class LightAnglesHeadHeatmapNoBottleneckNoReLu(nn.Module):
+    def __init__(self, base_model, a_bins, b_bins):
+        super().__init__()
+        self.base_model = base_model
+        self.Layer1 = nn.Linear(1000, 1000)
+        self.Layer_heatmap = nn.Linear(1000, a_bins * b_bins)
+        self.R = nn.ReLU()
+        self.a_bins = a_bins
+        self.b_bins = b_bins
+
+    def forward(self, x):
+        x = self.base_model(x)
+        x = self.Layer1(x)
+        heatmap = self.Layer_heatmap(x)
+        return heatmap
+    
+
+class LightAnglesHeadHeatmapNoBottleneck2(nn.Module):
+    def __init__(self, base_model, a_bins, b_bins):
+        super().__init__()
+        self.base_model = base_model
+        self.Layer1 = nn.Linear(1000, 1000)
+        self.Layer2 = nn.Linear(1000, 512)
+        self.layer3 = nn.Linear(512, 512)
+        self.Layer_heatmap = nn.Linear(512, a_bins * b_bins)
+        self.R = nn.ReLU()
+        self.a_bins = a_bins
+        self.b_bins = b_bins
+
+    def forward(self, x):
+        x = self.R(self.base_model(x))
+        x = self.R(self.Layer1(x))
+        x = self.R(self.Layer2(x))
+        x = self.layer3(x)
+        heatmap = self.Layer_heatmap(x)
+        return heatmap
 
 
 def light_angles_head(base_model):
@@ -77,46 +133,14 @@ def light_angles_head_heatmap(base_model, a_bins, b_bins):
     model = LightAnglesHeadHeatmap(base_model, a_bins, b_bins)
     return model
 
-'''def light_ange_head(base_model):
-    in_features = base_model.fc.in_features
-    base_model.fc = nn.Sequential(
-        nn.Linear(in_features, 512),
-        nn.ReLU(),
-        nn.Linear(512, 256),
-        nn.ReLU(),
-        nn.Linear(256, 64),
-        nn.ReLU(),
-        nn.Linear(64, 64),
-        nn.Linear(64, 1)
-    )
-    return base_model
+def light_angles_head_heatmap_no_bottleneck(base_model, a_bins, b_bins):
+    model = LightAnglesHeadHeatmapNoBottleneck(base_model, a_bins, b_bins)
+    return model
 
+def light_angles_head_heatmap_no_bottleneck2(base_model, a_bins, b_bins):
+    model = LightAnglesHeadHeatmapNoBottleneck2(base_model, a_bins, b_bins)
+    return model
 
-def light_angle_head_discrete(base_model, n):
-    in_features = base_model.fc.in_features
-    base_model.fc = nn.Sequential(
-        nn.Linear(in_features, 512),
-        nn.ReLU(),
-        nn.Linear(512, 256),
-        nn.ReLU(),
-        nn.Linear(256, 64),
-        nn.ReLU(),
-        nn.Linear(64, 64),
-        nn.Linear(64, n)
-    )
-    return base_model
-
-
-def ambient_head(base_model):
-    in_features = base_model.fc.in_features
-    base_model.fc = nn.Sequential(
-        nn.Linear(in_features, 512),
-        nn.ReLU(),
-        nn.Linear(512, 256),
-        nn.ReLU(),
-        nn.Linear(256, 64),
-        nn.ReLU(),
-        nn.Linear(64, 64),
-        nn.Linear(64, 1)
-    )
-    return base_model'''
+def light_angles_head_heatmap_no_bottleneck_no_relu(base_model, a_bins, b_bins):
+    model = LightAnglesHeadHeatmapNoBottleneckNoReLu(base_model, a_bins, b_bins)
+    return model

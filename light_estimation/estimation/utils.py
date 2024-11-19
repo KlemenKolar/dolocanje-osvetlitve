@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass, field
 from math import atan2
 from shutil import rmtree
 from typing import List
+import torch
 
 import numpy as np
 
@@ -51,6 +52,18 @@ def stereographic_to_angles(sx: float, sy: float):
 
     return a, b
 
+
+def get_index_from_heatmap(outputs, b_bins):
+    indexes = None
+    for output in outputs:
+        heatmap_index = np.argmax(output.detach().numpy())
+        if indexes is None:
+            indexes = np.array([np.floor(heatmap_index / b_bins), heatmap_index % b_bins])
+        else:
+            indexes = np.vstack((indexes, np.array([np.floor(heatmap_index / b_bins), heatmap_index % b_bins])))
+
+    return torch.from_numpy(indexes)
+        
 
 @dataclass
 class ObjectData:

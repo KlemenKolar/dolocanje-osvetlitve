@@ -60,3 +60,27 @@ class CustomDiscreteLoss(nn.Module):
         # Combined loss
         loss = alpha * L_azimuth + beta * L_elevation
         return loss.mean()
+    
+
+class CircularDistanceLoss(nn.Module):
+    def __init__(self, a_bins):
+        super(CircularDistanceLoss, self).__init__()
+        self.a_bins = a_bins
+
+    def forward(self, pred, true):
+        # Separate X and Y coordinates
+        pred_x, pred_y = pred[:, 0], pred[:, 1]
+        true_x, true_y = true[:, 0], true[:, 1]
+        
+        # Calculate X distance
+        d_x = torch.abs(pred_x - true_x)
+        
+        # Calculate Y distance considering circularity
+        d_y = torch.abs(pred_y - true_y)
+        d_y_circular = torch.min(d_y, self.a_bins - d_y)
+        
+        # Combine distances
+        loss = d_x ** 2 + d_y_circular ** 2
+        
+        # Return mean loss over batch
+        return loss.mean()
